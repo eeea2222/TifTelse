@@ -2,7 +2,14 @@ import pytest
 import torch
 import torch.nn.functional as F
 
-from tif_telse import available_activations, available_gates, compose_ops, fused_gated_residual, register_activation
+from tif_telse import (
+    available_activations,
+    available_gates,
+    compose_ops,
+    fused_gated_residual,
+    register_activation,
+    register_gate,
+)
 
 
 def reference(logits, a, b, residual, activation_fn=F.silu, gate_fn=torch.sigmoid):
@@ -83,6 +90,7 @@ def test_available_ops_include_aliases():
     assert "identity" in activations
     assert "clamp01" in gates
     assert "hard_sigmoid" in gates
+    assert "hard_sigmoid" in activations
 
 
 @pytest.mark.parametrize(
@@ -189,6 +197,58 @@ def test_user_registered_activation():
     residual = torch.randn(8)
     out = fused_gated_residual(logits, a, b, residual, activation="sq_test")
     assert torch.allclose(out, reference(logits, a, b, residual, square))
+
+
+def test_user_registered_activation_is_reported_as_custom_and_uses_torch_path():
+    def square(x):
+        return x * x
+
+    register_activation("square_test_report", square, aliases=("sq_test_report",))
+    x = torch.randn(8)
+    out, report = fused_gated_residual(x, x, x, x, activation="sq_test_report", debug=True)
+    assert torch.allclose(out, reference(x, x, x, x, square))
+    assert report.backend == "torch_composition"
+    assert report.custom_activation
+
+
+def test_user_registered_gate_is_reported_as_custom_and_uses_torch_path():
+    def passthrough(x):
+        return x.clamp(0, 1)
+
+    register_gate("clamp_test_report", passthrough)
+    x = torch.linspace(0, 1, 8)
+    out, report = fused_gated_residual(x, x, x, x, gate="clamp_test_report", debug=True)
+    assert torch.allclose(out, reference(x, x, x, x, gate_fn=passthrough))
+    assert report.backend == "torch_composition"
+    assert report.custom_gate
+
+
+def test_builtin_names_and_aliases_cannot_be_overridden():
+    def square(x):
+        return x * x
+
+    with pytest.raises(ValueError, match="Cannot override built-in"):
+        register_activation("silu", square)
+    with pytest.raises(ValueError, match="Cannot override built-in"):
+        register_activation("custom_with_builtin_alias", square, aliases=("swish",))
+    with pytest.raises(ValueError, match="Cannot override built-in"):
+        register_gate("sigmoid", square)
+
+
+def test_user_registry_requires_explicit_overwrite_for_user_names():
+    def first(x):
+        return x
+
+    def second(x):
+        return x + 1
+
+    register_activation("overwrite_test_activation", first)
+    with pytest.raises(ValueError, match="already registered"):
+        register_activation("overwrite_test_activation", second)
+    register_activation("overwrite_test_activation", second, overwrite=True)
+    x = torch.randn(8)
+    out = fused_gated_residual(x, x, x, x, activation="overwrite_test_activation", backend="torch")
+    assert torch.allclose(out, reference(x, x, x, x, second))
 
 
 def test_unknown_activation_error_lists_available_ops():

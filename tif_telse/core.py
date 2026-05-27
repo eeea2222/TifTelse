@@ -90,12 +90,17 @@ def tif(
     if isinstance(condition, np.ndarray):
         then_resolved = _resolve(then_value)
         else_resolved = _resolve(else_value)
-        if condition.dtype == np.bool_ or mode in ("hard_mask", "auto"):
+        if condition.dtype == np.bool_:
             out = np.where(condition, then_resolved, else_resolved)
         elif mode == "soft":
             out = condition * then_resolved + (1 - condition) * else_resolved
+        elif mode == "hard_mask":
+            out = np.where(condition != 0, then_resolved, else_resolved)
         else:
-            raise TypeError("NumPy conditions require boolean masks or mode='soft'.")
+            raise TypeError(
+                "NumPy non-boolean conditions are ambiguous. Use mode='soft' "
+                "for differentiable-style blending or mode='hard_mask' for nonzero masks."
+            )
         report = _debug_info("numpy", "NumPy condition uses NumPy vectorized selection/blending")
         return (out, report) if debug else out
 

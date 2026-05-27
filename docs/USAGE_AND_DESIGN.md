@@ -145,8 +145,8 @@ TIF/TELSE gives you one API across all three and refuses to silently confuse the
 | `straight_through_tif(gate, a, b, *, threshold=0.5)` | Hard-forward, soft-backward (STE) gating. |
 | `fused_gated_residual(...)` | Training pattern `residual + lerp(b, act(a), gate(logits))`, backend-routed. |
 | `detect_capabilities()` | Reports torch/numpy/triton availability, `torch.compile` state, CUDA. |
-| `register_activation(name, fn, *, aliases=())` | Add a user activation to the registry. |
-| `register_gate(name, fn, *, aliases=())` | Add a user gate to the registry. |
+| `register_activation(name, fn, *, aliases=(), overwrite=False)` | Add a user activation to the registry. |
+| `register_gate(name, fn, *, aliases=(), overwrite=False)` | Add a user gate to the registry. |
 | `available_activations()` / `available_gates()` | Inspect registries. |
 | `compose_ops(*ops)` | Build a single callable from a pipeline of registered ops or callables. |
 | `debug=True` | Returns a `BackendReport` explaining what was selected and why. |
@@ -158,7 +158,7 @@ TIF/TELSE gives you one API across all three and refuses to silently confuse the
 | Python `bool` | True lazy branching; only the selected branch's callable runs. | — |
 | Python numeric scalar (not `bool`) | Raises unless `mode="scalar"` is set. Explicit truthiness opt-in. | `"scalar"` |
 | `numpy.ndarray` of `bool` | `np.where(c, a, b)`. | auto |
-| `numpy.ndarray` of float | `c*a + (1-c)*b` blending. | `"soft"` |
+| `numpy.ndarray` of float | Ambiguous by default. Must opt into `c*a + (1-c)*b` blending or nonzero masking. | `"soft"` or `"hard_mask"` |
 | `torch.Tensor` of `bool` | `torch.where`, broadcasts, preserves dtype/device/grad. | auto |
 | `torch.Tensor` of float | Ambiguous by default. Must opt into `"soft"` or `"hard_mask"`. | explicit |
 
@@ -168,11 +168,11 @@ TIF/TELSE gives you one API across all three and refuses to silently confuse the
 
 ## Built-in registries
 
-**Activations:** `identity`/`none`, `relu`, `gelu`, `silu`/`swish`, `mish`, `elu`, `selu`, `leaky_relu`, `hardtanh`, `hardswish`, `hardsigmoid`, `softplus`, `sigmoid`, `tanh`.
+**Activations:** `identity`/`none`, `relu`, `gelu`, `silu`/`swish`, `mish`, `elu`, `selu`, `leaky_relu`, `hardtanh`, `hardswish`, `hardsigmoid`/`hard_sigmoid`, `softplus`, `sigmoid`, `tanh`.
 
 **Gates:** `sigmoid`, `identity`/`none`, `clamp01`, `hard_sigmoid`.
 
-Names are case-insensitive and hyphen/underscore-insensitive. Parameterized activations take kwargs:
+Names are case-insensitive, and hyphens normalize to underscores. Common aliases such as `swish`, `none`, `hardsigmoid`, and `hard_sigmoid` are registered explicitly. Parameterized activations take kwargs:
 
 ```python
 fused_gated_residual(
@@ -183,6 +183,8 @@ fused_gated_residual(
 ```
 
 Custom callables work too — `torch.compile` compatibility depends on whether Dynamo can trace them.
+
+Registered user ops are reported as custom ops and are routed through PyTorch composition unless a future backend explicitly supports them. Built-in names and aliases are reserved; pass `overwrite=True` only to replace a previous user-registered name.
 
 ---
 
@@ -319,7 +321,7 @@ The router applies these rules, in order:
 - Reducing graph breaks in `torch.compile` regions.
 - Replacing CUDA-side `if/else` that currently forces a sync.
 - Workloads where a fused CUDA path is provably faster.
-- Anywhere you want benchmark-guided routing instead of a hand-picked backend.
+- Anywhere you want conservative heuristic routing instead of a hand-picked backend.
 
 ## When NOT to use it
 
@@ -341,7 +343,7 @@ The router applies these rules, in order:
 - **`torch.compile`-friendly composition** — the PyTorch path is fully traceable; the auto router yields to Inductor when Inductor is the right tool.
 - **Registry + callable flexibility** — named ops for stability, callables for experimentation.
 - **Cleaner training code** — value selection instead of ad-hoc `where` chains.
-- **Benchmark-guided routing** — the heuristics are derived from measurements, not vibes.
+- **Conservative heuristic routing** — the Triton path is used only for a narrow measured pattern.
 - **Triton acceleration for known-fast fused paths** — narrow, opt-in-by-shape, falls back honestly.
 - **Honest fallback to PyTorch/Inductor** — the library does not pretend Triton is always faster.
 
@@ -374,7 +376,7 @@ This is the section most performance libraries skip. We won't.
 - **Compare against strong baselines.** Eager PyTorch with `torch.lerp` is a strong baseline. Add `torch.compile` to that and it gets stronger.
 - **Old algebra baselines (`c*a + (1-c)*b`) are weak.** Beating those is not a real win. The library benches against `torch.lerp(b, act(a), gate(logits))` and the compiled version.
 - **The report tells the truth.** When `debug=True`, the `BackendReport` says which backend won and why — including the cases where PyTorch beat Triton.
-- **No "always faster" claim.** TIF/TELSE is benchmark-guided, not backend-religious.
+- **No "always faster" claim.** TIF/TELSE uses conservative benchmark-informed heuristics, not backend loyalty.
 - **Run the benchmark on your hardware.**
 
 ```bash

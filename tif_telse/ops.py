@@ -27,6 +27,8 @@ class ResolvedOp:
 
 _ACTIVATIONS: dict[str, OpSpec] = {}
 _GATES: dict[str, OpSpec] = {}
+_BUILTIN_ACTIVATION_KEYS: set[str] = set()
+_BUILTIN_GATE_KEYS: set[str] = set()
 
 
 def _normalize_name(name: str) -> str:
@@ -36,21 +38,63 @@ def _normalize_name(name: str) -> str:
     return normalized
 
 
-def _register(registry: dict[str, OpSpec], name: str, fn: Callable[..., torch.Tensor], aliases: tuple[str, ...]) -> None:
+def _register(
+    registry: dict[str, OpSpec],
+    builtin_keys: set[str],
+    name: str,
+    fn: Callable[..., torch.Tensor],
+    aliases: tuple[str, ...],
+    *,
+    builtin: bool,
+    overwrite: bool,
+) -> None:
     if not callable(fn):
         raise TypeError("Registered operation must be callable.")
     canonical = _normalize_name(name)
-    spec = OpSpec(canonical, fn, builtin=True)
-    for key in (canonical, *aliases):
-        registry[_normalize_name(key)] = spec
+    normalized_keys = tuple(_normalize_name(key) for key in (canonical, *aliases))
+    conflicts = [key for key in normalized_keys if key in builtin_keys and not builtin]
+    if conflicts:
+        joined = ", ".join(sorted(conflicts))
+        raise ValueError(f"Cannot override built-in operation name or alias: {joined}")
+    if not overwrite:
+        existing = [key for key in normalized_keys if key in registry]
+        if existing:
+            joined = ", ".join(sorted(existing))
+            raise ValueError(f"Operation name or alias already registered: {joined}")
+
+    spec = OpSpec(canonical, fn, builtin=builtin)
+    for key in normalized_keys:
+        registry[key] = spec
+        if builtin:
+            builtin_keys.add(key)
 
 
-def register_activation(name: str, fn: Callable[..., torch.Tensor], *, aliases: tuple[str, ...] = ()) -> None:
-    _register(_ACTIVATIONS, name, fn, aliases)
+def _register_builtin_activation(name: str, fn: Callable[..., torch.Tensor], *, aliases: tuple[str, ...] = ()) -> None:
+    _register(_ACTIVATIONS, _BUILTIN_ACTIVATION_KEYS, name, fn, aliases, builtin=True, overwrite=True)
 
 
-def register_gate(name: str, fn: Callable[..., torch.Tensor], *, aliases: tuple[str, ...] = ()) -> None:
-    _register(_GATES, name, fn, aliases)
+def _register_builtin_gate(name: str, fn: Callable[..., torch.Tensor], *, aliases: tuple[str, ...] = ()) -> None:
+    _register(_GATES, _BUILTIN_GATE_KEYS, name, fn, aliases, builtin=True, overwrite=True)
+
+
+def register_activation(
+    name: str,
+    fn: Callable[..., torch.Tensor],
+    *,
+    aliases: tuple[str, ...] = (),
+    overwrite: bool = False,
+) -> None:
+    _register(_ACTIVATIONS, _BUILTIN_ACTIVATION_KEYS, name, fn, aliases, builtin=False, overwrite=overwrite)
+
+
+def register_gate(
+    name: str,
+    fn: Callable[..., torch.Tensor],
+    *,
+    aliases: tuple[str, ...] = (),
+    overwrite: bool = False,
+) -> None:
+    _register(_GATES, _BUILTIN_GATE_KEYS, name, fn, aliases, builtin=False, overwrite=overwrite)
 
 
 def available_activations() -> tuple[str, ...]:
@@ -74,7 +118,7 @@ def _resolve(registry: dict[str, OpSpec], op: str | Callable[..., torch.Tensor],
         except KeyError as exc:
             available = ", ".join(sorted(registry))
             raise ValueError(f"Unknown operation '{op}'. Available operations: {available}") from exc
-        return ResolvedOp(spec.name, spec.fn, resolved_kwargs, builtin=spec.builtin, custom=False)
+        return ResolvedOp(spec.name, spec.fn, resolved_kwargs, builtin=spec.builtin, custom=not spec.builtin)
 
     if callable(op):
         return ResolvedOp(_callable_name(op), op, resolved_kwargs, builtin=False, custom=True)
@@ -125,22 +169,22 @@ def _clamp01(x: torch.Tensor) -> torch.Tensor:
     return x.clamp(0, 1)
 
 
-register_activation("identity", _identity, aliases=("none",))
-register_activation("relu", F.relu)
-register_activation("gelu", F.gelu)
-register_activation("silu", F.silu, aliases=("swish",))
-register_activation("mish", F.mish)
-register_activation("elu", F.elu)
-register_activation("selu", F.selu)
-register_activation("leaky_relu", F.leaky_relu, aliases=("lrelu",))
-register_activation("hardtanh", F.hardtanh)
-register_activation("hardswish", F.hardswish)
-register_activation("hardsigmoid", F.hardsigmoid)
-register_activation("softplus", F.softplus)
-register_activation("sigmoid", torch.sigmoid)
-register_activation("tanh", torch.tanh)
+_register_builtin_activation("identity", _identity, aliases=("none",))
+_register_builtin_activation("relu", F.relu)
+_register_builtin_activation("gelu", F.gelu)
+_register_builtin_activation("silu", F.silu, aliases=("swish",))
+_register_builtin_activation("mish", F.mish)
+_register_builtin_activation("elu", F.elu)
+_register_builtin_activation("selu", F.selu)
+_register_builtin_activation("leaky_relu", F.leaky_relu, aliases=("lrelu",))
+_register_builtin_activation("hardtanh", F.hardtanh)
+_register_builtin_activation("hardswish", F.hardswish)
+_register_builtin_activation("hardsigmoid", F.hardsigmoid, aliases=("hard_sigmoid",))
+_register_builtin_activation("softplus", F.softplus)
+_register_builtin_activation("sigmoid", torch.sigmoid)
+_register_builtin_activation("tanh", torch.tanh)
 
-register_gate("sigmoid", torch.sigmoid)
-register_gate("identity", _identity, aliases=("none",))
-register_gate("clamp01", _clamp01, aliases=("clamp_01",))
-register_gate("hard_sigmoid", F.hardsigmoid, aliases=("hardsigmoid",))
+_register_builtin_gate("sigmoid", torch.sigmoid)
+_register_builtin_gate("identity", _identity, aliases=("none",))
+_register_builtin_gate("clamp01", _clamp01, aliases=("clamp_01",))
+_register_builtin_gate("hard_sigmoid", F.hardsigmoid, aliases=("hardsigmoid",))
