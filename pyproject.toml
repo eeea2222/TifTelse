@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tif-telse"
+version = "0.1.0"
+description = "Tensorized If / Tensorized Else primitives for conditional tensor flow."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24",
+  "torch>=2.4",
+]
+
+[project.optional-dependencies]
+triton = ["triton>=2.3"]
+test = ["pytest>=8"]
+benchmark = ["triton>=2.3"]
+
+[tool.setuptools.packages.find]
+include = ["tif_telse*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+# Narrow filter: silence ONLY the torch.utils.mkldnn-triggered torch.jit.script_method
+# deprecation that PyTorch emits internally during torch.compile/Inductor warmup.
+# Bound to the exact message + category + emitting module — not a blanket ignore.
+filterwarnings = [
+  "ignore:`torch\\.jit\\.script_method` is deprecated\\..*:DeprecationWarning:torch\\.jit\\._script",
+]
