@@ -297,8 +297,8 @@ The router applies these rules, in order:
 1. **CPU, non-contiguous tensors, unsupported dtypes, shape mismatches, missing Triton, missing CUDA, or custom callables** → PyTorch composition.
 2. **Inside `torch.compile`/Inductor** → PyTorch composition. Let Inductor own fusion. Inserting a Triton custom op here often breaks fusion downstream.
 3. **`backend="triton"` forced** → Triton if eligible, else a useful `RuntimeError` explaining why it isn't.
-4. **`backend="auto"` on large contiguous CUDA tensors with the known-fast pattern** (`activation="silu"`, `gate="sigmoid"`) → Triton fused kernel.
-5. **Mid-size or backward-heavy autograd cases where measured Triton backward is weaker** → PyTorch composition.
+4. **Autograd tensors** → PyTorch composition because measured Triton backward is weaker.
+5. **`backend="auto"` on large contiguous CUDA forward/inference tensors with the known-fast pattern** (`activation="silu"`, `gate="sigmoid"`) → Triton fused kernel.
 6. **Anything else** → PyTorch composition.
 
 ### Hard invariants
@@ -364,7 +364,7 @@ The router applies these rules, in order:
 - Non-debug calls skip `RuntimeCapabilities` construction entirely. `debug=True` is for diagnostics, not the hot path.
 - Static capability flags (Triton importable, `torch.compiler` present, `torch.library.triton_op` present) are cached at import — they cannot change at runtime.
 - The Triton fused kernel uses `n_elements` as a runtime arg (not `tl.constexpr`) so a single compiled kernel handles every tensor size. Only `BLOCK_SIZE` is `constexpr`, with autotune over `{256, 512, 1024}`.
-- Auto routing currently steers to PyTorch composition under `torch.compile`, on small tensors (`< 1M` elements), and for mid-size low-precision or large fp32 autograd cases where Triton backward measured weaker.
+- Auto routing currently steers to PyTorch composition under `torch.compile`, on small tensors (`< 1M` elements), and whenever autograd is needed because Triton backward measured weaker.
 - The fast Triton path is intentionally narrow: `silu`/`swish` activation + `sigmoid` gate + tensor residual + contiguous CUDA + matching shapes + matching dtype in `{fp16, bf16, fp32}`.
 
 ---

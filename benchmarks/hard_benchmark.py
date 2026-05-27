@@ -343,6 +343,28 @@ def measure_row(
     reason: str = "",
     triton: bool = False,
 ) -> BenchRow:
+    if backend_name in {"tif_auto", "tif_torch", "tif_triton_forced"}:
+        backend = backend_name.removeprefix("tif_")
+        if backend == "triton_forced":
+            backend = "triton"
+        probe_inputs = tuple(x.detach().clone().requires_grad_(autograd) for x in inputs) if autograd else inputs
+        try:
+            _, report = fused_gated_residual(
+                *probe_inputs,
+                activation=workload.activation.arg,
+                activation_kwargs=workload.activation.kwargs,
+                gate=workload.gate.arg,
+                gate_kwargs=workload.gate.kwargs,
+                backend=backend,
+                debug=True,
+            )
+            selected_backend = report.backend
+            reason = report.reason
+            triton = report.triton_used
+        except Exception as exc:
+            selected_backend = selected_backend or "unknown"
+            reason = reason or f"{type(exc).__name__}: {exc}"
+
     correct, error = backward_correct(fn, ref_fn, inputs, workload.dtype) if autograd else forward_correct(fn, ref_fn, inputs, workload.dtype)
     latency_ms = None
     peak_mb = None

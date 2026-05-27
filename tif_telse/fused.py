@@ -162,18 +162,11 @@ def _select_fused_backend(
     if torch.is_grad_enabled():
         needs_backward = any(t.requires_grad for t in (logits, a, b, residual) if t is not None)
         if needs_backward:
-            if logits.dtype in (torch.float16, torch.bfloat16) and n_elements < 4_000_000:
-                return False, report(
-                    "torch_composition",
-                    False,
-                    "auto selected torch for mid-size low-precision autograd; measured Triton backward is weaker here",
-                )
-            if logits.dtype == torch.float32 and n_elements >= 4_000_000:
-                return False, report(
-                    "torch_composition",
-                    False,
-                    "auto selected torch for large fp32 autograd; measured Triton backward is weaker here",
-                )
+            return False, report(
+                "torch_composition",
+                False,
+                "auto selected torch for autograd; measured Triton backward is weaker here",
+            )
 
     return True, report(
         "triton_fused_gate_silu_residual",

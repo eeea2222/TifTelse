@@ -54,7 +54,8 @@ The general `tif` API stays conservative and PyTorch-native by default. The fuse
 
 - CPU, non-contiguous tensors, unsupported dtypes, shape mismatches, missing Triton, or missing CUDA use PyTorch composition.
 - `torch.compile`/Inductor contexts use PyTorch composition so Inductor can own fusion.
-- Large contiguous CUDA tensors can use the Triton fused kernel only for the known-fast `sigmoid` gate + `silu`/`swish` activation pattern when the local heuristic says it is likely to win.
+- Large contiguous CUDA tensors can use the Triton fused kernel only for forward/inference calls in the known-fast `sigmoid` gate + `silu`/`swish` activation pattern when the local heuristic says it is likely to win.
+- Autograd calls use PyTorch composition by default because the measured Triton backward path is usually weaker than PyTorch/Inductor.
 - `backend="triton"` can force Triton for explicit profiling and raises a useful error if unsupported.
 - `debug=True` returns a backend report with the selected backend, reason, resolved activation/gate, whether either is custom, and detected capabilities.
 

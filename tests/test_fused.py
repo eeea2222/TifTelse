@@ -313,6 +313,16 @@ def test_auto_routes_small_cuda_tensors_to_torch_composition():
 
 
 @pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA unavailable")
+def test_auto_routes_large_cuda_autograd_to_torch_composition():
+    tensors = [torch.randn(1024, 1024, device="cuda", requires_grad=True) for _ in range(4)]
+    _, report = fused_gated_residual(*tensors, backend="auto", debug=True)
+    assert report.backend == "torch_composition"
+    assert not report.triton_used
+    if report.capabilities.triton_available and report.capabilities.triton_op_available:
+        assert "autograd" in report.reason
+
+
+@pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA unavailable")
 def test_only_known_fast_pattern_can_force_triton_cuda():
     tensors = [torch.randn(4096, device="cuda") for _ in range(4)]
     with pytest.raises(RuntimeError, match="activation='silu'"):
