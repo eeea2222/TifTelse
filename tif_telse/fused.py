@@ -64,6 +64,10 @@ def _triton_kernel_eligibility(
         return False, "torch.library Triton integration is unavailable"
     if _triton_gate_silu_residual is None:
         return False, "triton fused op was not registered"
+    if activation.custom or gate.custom:
+        return False, "triton path requires built-in activation and gate"
+    if activation.name != "silu" or gate.name != "sigmoid":
+        return False, "triton milestone kernel supports activation='silu' and gate='sigmoid'"
     if residual is None:
         return False, "triton path requires a tensor residual for the milestone kernel"
     tensors = (logits, a, b, residual)
@@ -78,10 +82,6 @@ def _triton_kernel_eligibility(
         return False, "triton path requires matching dtypes"
     if logits_dtype not in (torch.float16, torch.bfloat16, torch.float32):
         return False, "triton path supports fp16, bf16, and fp32"
-    if activation.custom or gate.custom:
-        return False, "triton path requires registry-known activation and gate"
-    if activation.name != "silu" or gate.name != "sigmoid":
-        return False, "triton milestone kernel supports activation='silu' and gate='sigmoid'"
     return True, "eligible"
 
 

@@ -33,6 +33,13 @@ def test_numpy_vectorized_where_and_soft():
     np.testing.assert_allclose(tif(gate, 10.0, telse(2.0), mode="soft"), [2.0, 4.0, 10.0])
 
 
+def test_numpy_float_condition_requires_explicit_mode():
+    gate = np.array([0.2, 0.0, 0.8])
+    with pytest.raises(TypeError, match="NumPy non-boolean conditions are ambiguous"):
+        tif(gate, 10.0, telse(2.0))
+    np.testing.assert_array_equal(tif(gate, 10.0, telse(2.0), mode="hard_mask"), [10.0, 2.0, 10.0])
+
+
 def test_torch_bool_mask_broadcast_dtype_and_grad():
     x = torch.tensor([[1.0], [2.0]], requires_grad=True)
     y = torch.tensor([[10.0, 20.0]], requires_grad=True)

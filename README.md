@@ -21,7 +21,7 @@ Python `if/else` controls programs. TIF/TELSE selects or blends tensor values.
 y = residual + sigmoid(logits) * activation(a) + (1 - sigmoid(logits)) * b
 ```
 
-Built-in activations include `identity`/`none`, `relu`, `gelu`, `silu`/`swish`, `mish`, `elu`, `selu`, `leaky_relu`, `hardtanh`, `hardswish`, `hardsigmoid`, `softplus`, `sigmoid`, and `tanh`.
+Built-in activations include `identity`/`none`, `relu`, `gelu`, `silu`/`swish`, `mish`, `elu`, `selu`, `leaky_relu`, `hardtanh`, `hardswish`, `hardsigmoid`/`hard_sigmoid`, `softplus`, `sigmoid`, and `tanh`.
 
 Built-in gates include `sigmoid`, `identity`/`none`, `clamp01`, and `hard_sigmoid`.
 
@@ -34,6 +34,8 @@ from tif_telse import compose_ops, fused_gated_residual
 custom_activation = compose_ops("relu", torch.tanh)
 y = fused_gated_residual(logits, a, b, residual, activation=custom_activation)
 ```
+
+Registered user ops are treated as custom ops for backend routing. Built-in names and aliases cannot be overwritten, so the narrow Triton kernel is only used for the known built-in `silu`/`swish` activation plus built-in `sigmoid` gate.
 
 Parameterized built-ins use kwargs:
 
@@ -144,8 +146,8 @@ Everything below is importable from `tif_telse`. Anything not on this list is pr
 - `fused_gated_residual(logits_or_gate, a, b, residual=None, *, activation="silu", gate="sigmoid", activation_kwargs=None, gate_kwargs=None, backend="auto", debug=False)`
 
 ### Registry
-- `register_activation(name, fn, *, aliases=())`
-- `register_gate(name, fn, *, aliases=())`
+- `register_activation(name, fn, *, aliases=(), overwrite=False)`
+- `register_gate(name, fn, *, aliases=(), overwrite=False)`
 - `available_activations() -> tuple[str, ...]`
 - `available_gates() -> tuple[str, ...]`
 - `compose_ops(*ops) -> Callable[[Tensor], Tensor]`
