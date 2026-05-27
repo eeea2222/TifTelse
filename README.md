@@ -116,6 +116,8 @@ No speedup is claimed by this README. Run the benchmark on the target machine an
 
 Both benchmarks support `--json` for machine-readable output; `hard_benchmark.py` also supports `--output-json PATH`. See [docs/USAGE_AND_DESIGN.md](docs/USAGE_AND_DESIGN.md#json-export) for the row schema.
 
+For a broader comparison against eager PyTorch, `torch.compile`, TIF auto routing, and forced Triton, see [docs/COMPETITIVE_BENCHMARK_REPORT.md](docs/COMPETITIVE_BENCHMARK_REPORT.md).
+
 ## Examples
 
 Runnable scripts in [examples/](examples/):
