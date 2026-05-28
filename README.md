@@ -1,5 +1,7 @@
 # TIF / TELSE
 
+its and python library for Train AI models
+
 TIF means Tensorized If. TELSE means Tensorized Else.
 
 This package is an experimental but serious first milestone for mathematical conditional execution in AI training. It is not a replacement for Python control flow and it does not claim that every `if/else` can or should be tensorized.
