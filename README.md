@@ -139,7 +139,7 @@ python examples/05_fused_gated_residual.py
 
 ## Public API
 
-Everything below is importable from `tif_telse`. Anything not on this list is private and may change without notice.
+Everything below is importable from `tif_telse`. Anything not on this list is private and may change without notice. The installed package version is available as `tif_telse.__version__`, and the package ships a `py.typed` marker so type checkers consume its annotations.
 
 ### Value selection
 - `tif(condition, then_value, telse(else_value), *, mode="auto", strict=True, debug=False)` — unified value-selection entry point.
@@ -156,7 +156,10 @@ Everything below is importable from `tif_telse`. Anything not on this list is pr
 - `available_activations() -> tuple[str, ...]`
 - `available_gates() -> tuple[str, ...]`
 - `compose_ops(*ops) -> Callable[[Tensor], Tensor]`
-- `resolve_op(op, kwargs=None) -> ResolvedOp` — for advanced custom backends.
+- `resolve_op(op, kwargs=None) -> ResolvedOp` — resolve an activation name/callable, falling back to the gate registry.
+- `resolve_activation(op, kwargs=None) -> ResolvedOp` / `resolve_gate(op, kwargs=None) -> ResolvedOp` — registry-specific resolution.
+- `apply_op(resolved, x) -> Tensor` — apply a `ResolvedOp` (with its bound kwargs) to a tensor.
+- `ResolvedOp` — frozen dataclass returned by the resolvers (`name`, `fn`, `kwargs`, `builtin`, `custom`); the building block for advanced custom backends.
 
 ### Capability detection
 - `detect_capabilities(torch_mod=None, *, device=None) -> RuntimeCapabilities`

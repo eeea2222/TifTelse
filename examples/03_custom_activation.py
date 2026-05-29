@@ -1,6 +1,7 @@
 """Register a user-defined activation and use it through the fused primitive."""
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import torch
 

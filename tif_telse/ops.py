@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 import torch
 import torch.nn.functional as F
@@ -109,7 +109,11 @@ def _callable_name(fn: Callable[..., torch.Tensor]) -> str:
     return getattr(fn, "__name__", fn.__class__.__name__)
 
 
-def _resolve(registry: dict[str, OpSpec], op: str | Callable[..., torch.Tensor], kwargs: dict[str, object] | None) -> ResolvedOp:
+def _resolve(
+    registry: dict[str, OpSpec],
+    op: str | Callable[..., torch.Tensor],
+    kwargs: dict[str, object] | None,
+) -> ResolvedOp:
     resolved_kwargs = dict(kwargs or {})
     if isinstance(op, str):
         key = _normalize_name(op)

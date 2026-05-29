@@ -8,6 +8,20 @@ version = "0.1.0"
 description = "Tensorized If / Tensorized Else primitives for conditional tensor flow."
 readme = "README.md"
 requires-python = ">=3.10"
+license = { file = "LICENSE" }
+keywords = ["pytorch", "triton", "tensor", "conditional", "fused", "deep-learning"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Typing :: Typed",
+]
 dependencies = [
   "numpy>=1.24",
   "torch>=2.4",
@@ -21,6 +35,9 @@ benchmark = ["triton>=2.3"]
 [tool.setuptools.packages.find]
 include = ["tif_telse*"]
 
+[tool.setuptools.package-data]
+tif_telse = ["py.typed"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
@@ -30,3 +47,31 @@ addopts = "-q"
 filterwarnings = [
   "ignore:`torch\\.jit\\.script_method` is deprecated\\..*:DeprecationWarning:torch\\.jit\\._script",
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# Triton kernels shadow builtins/args by design (e.g. `logits`, `a`, `b`) and
+# the optional-import fallbacks reassign module names to None on purpose.
+ignore = ["E741"]
+
+[tool.ruff.lint.per-file-ignores]
+# Examples manipulate sys.path before importing, so imports are not at top.
+"examples/*" = ["E402"]
+# Benchmarks are standalone scripts: wide result-table lines (E501), and closures
+# that are built and invoked within the same loop iteration (B023 false positives).
+"benchmarks/*" = ["E402", "E501", "B023", "B905"]
+# Tests favor terse inline lambdas and zips for readability.
+"tests/*" = ["E731", "B905"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_redundant_casts = true
+ignore_missing_imports = true
+# The optional-import fallbacks (e.g. `torch = None`) carry defensive `type: ignore`
+# comments that are only "unused" when torch happens to be installed, so
+# warn_unused_ignores is intentionally left off.
+files = ["tif_telse"]

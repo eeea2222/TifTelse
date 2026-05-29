@@ -1,6 +1,7 @@
 """Basic tif usage: scalar bool (lazy), bool tensor mask, numpy bool mask."""
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import numpy as np
 import torch

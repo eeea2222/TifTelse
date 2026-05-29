@@ -149,6 +149,12 @@ def soft_tif(gate: Any, then_value: Any, else_value: Any, *, clamp: bool = False
         return torch.lerp(else_endpoint, then_endpoint, effective_gate)
 
     if isinstance(gate, np.ndarray):
+        for value, name in ((then_value, "then_value"), (else_value, "else_value")):
+            if _is_torch_tensor(value):
+                raise TypeError(
+                    f"soft_tif with a NumPy array gate requires NumPy or numeric scalar {name}; "
+                    "torch tensors are not converted to NumPy implicitly."
+                )
         effective_gate = np.clip(gate, 0, 1) if clamp else gate
         return else_value + effective_gate * (then_value - else_value)
 
