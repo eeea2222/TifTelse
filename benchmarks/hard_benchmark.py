@@ -6,9 +6,9 @@ import math
 import statistics
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Callable
 
 import torch
 import torch.nn.functional as F
@@ -18,7 +18,6 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tif_telse import compose_ops, fused_gated_residual
-
 
 TensorFn = Callable[[torch.Tensor], torch.Tensor]
 

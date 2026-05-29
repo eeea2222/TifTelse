@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Literal
+from typing import Literal
 
 import torch
 
 from .backends import (
-    BackendDecision,
-    RuntimeCapabilities,
     _TRITON_AVAILABLE,
     _TRITON_OP_AVAILABLE,
+    BackendDecision,
+    RuntimeCapabilities,
     detect_capabilities,
     torch_compile_active,
 )
@@ -217,7 +218,10 @@ if triton is not None:
     ) -> torch.Tensor:
         out = torch.empty_like(a)
         n_elements = a.numel()
-        grid = lambda meta: (triton.cdiv(n_elements, meta["BLOCK_SIZE"]),)
+
+        def grid(meta):
+            return (triton.cdiv(n_elements, meta["BLOCK_SIZE"]),)
+
         torch.library.wrap_triton(_fused_gate_silu_residual_kernel)[grid](
             logits,
             a,
